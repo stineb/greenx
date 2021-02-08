@@ -57,6 +57,6 @@ nclist_to_df(
 	latnam = latnam, 
 	timenam = timenam, 
 	timedimnam = timedimnam, 
-	ncores = 1, #"all", 
+	ncores = "all", 
   fgetdate = fgetdate_modis
 	)
