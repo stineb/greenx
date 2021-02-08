@@ -31,7 +31,7 @@ calc_anom_ndvi_byilon <- function(ilon){
     mutate(notavl_mct = purrr::map_lgl(df_mct, ~is.null(.))) %>% 
     dplyr::filter(!notavl_mct) %>% 
     dplyr::select(-notavl_mct) %>% 
-    mutate(df_mct = purrr::map(df_mct, ~dplyr::select(., time, deficit))) %>% 
+    mutate(df_mct = purrr::map(df_mct, ~dplyr::select(., time, cwd = deficit, iinst_cwd = iinst))) %>% 
     
     ## merge time series
     mutate(df_mct = purrr::map2(df_mct, data, ~full_join(.x, .y, by = "time"))) %>% 

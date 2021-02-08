@@ -1,5 +1,12 @@
 calc_anom_ndvi <- function(df, mod, prob = 0.05){
   
+  ## record largest CWD events of each year
+  biginstances <- df %>% 
+    mutate(year = lubridate::year(time)) %>% 
+    group_by(year) %>% 
+    dplyr::filter(cwd == max(cwd)) %>% 
+    pull(iinst_cwd)
+  
   ## get mean seasonality
   df_meandoy <- df %>% 
     mutate(doy = lubridate::yday(time)) %>% 
@@ -21,14 +28,14 @@ calc_anom_ndvi <- function(df, mod, prob = 0.05){
   df <- df %>% 
     mutate(zscore = ndvi_anom / sd_anom)
   
-  ## determine the return periods, given deficit (=CWD) and mod (=the fitted extreme value distribution)
+  ## determine the return periods, given cwd (=CWD) and mod (=the fitted extreme value distribution)
   location <- mod$results$par[1]
   scale <- mod$results$par[2]
   shape <- 0  # for Gumbel  mod$results$par[3]
   
   ## calculate probability of X <= x
   df <- df %>% 
-    mutate(p_exceedance = exp(-exp((deficit - location)/scale))) %>% 
+    mutate(p_exceedance = exp(-exp((cwd - location)/scale))) %>% 
     mutate(return_period = 1/p_exceedance)
   
   ## visualise
@@ -41,6 +48,7 @@ calc_anom_ndvi <- function(df, mod, prob = 0.05){
   
   ## ndvi anomaly vs. return period
   df %>% 
+    dplyr::filter(iinst_cwd %in% biginstances) %>% 
     ggplot(aes(x = return_period, y = zscore)) + 
     geom_point()
 
@@ -58,14 +66,14 @@ calc_anom_ndvi <- function(df, mod, prob = 0.05){
   ## determine extreme events with more than one consecutive extreme anomaly
   df <- get_iinst(df, leng_threshold = 1)
   
-  ## retain only data of NDVI anomaly threshold crossing date (instt = 1)
+  ## retain only data of NDVI anomaly threshold crossing date (instt = 1) and happening during annual maximum CWD event
   df <- df %>% 
-    dplyr::select(time, deficit, return_period, ndvi, ndvi_anom, zscore, iinst, instt) %>% 
-    dplyr::filter(instt == 1) %>% 
+    dplyr::filter(instt == 1 & iinst_cwd %in% biginstances) %>% 
+    dplyr::select(time, cwd, return_period, ndvi, ndvi_anom, zscore) %>% 
     mutate(thresh_quantile = prob)
   
   # # xxx try
-  # x <- df$deficit[1]  
+  # x <- df$cwd[1]  
   # p_exceedance <- 1 - pevd(-x, loc = location, scale = scale, type = "Gumbel")  # doesn't make sense!
   # p_exceedance <- exp(-exp((x - location)/scale))
   
