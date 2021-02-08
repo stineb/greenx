@@ -20,11 +20,9 @@ calc_anom_ndvi <- function(df, mod, prob = 0.05){
     left_join(df_meandoy, by = "doy") %>% 
     mutate(ndvi_anom = ndvi - ndvi_mean)
   
-  ## get threshold
+  ## z score of anomaly
   vec_ndvi_anom <- df %>% pull(ndvi_anom)
   sd_anom <- sd(vec_ndvi_anom, na.rm = TRUE)
-  
-  ## z score of anomaly
   df <- df %>% 
     mutate(zscore = ndvi_anom / sd_anom)
   
