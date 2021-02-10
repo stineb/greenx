@@ -1,0 +1,97 @@
+---
+title: "greenx workflow"
+author: "Beni Stocker"
+date: "2/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(rbeni)
+library(patchwork)
+library(extRemes)
+library(lubridate)
+knitr::opts_chunk$set(echo = TRUE)
+
+source("R/calc_anom_ndvi.R")
+source("R/calc_anom_ndvi_byilon.R")
+source("R/get_iinst.R")
+```
+
+## Rationale
+
+This is to investigate the (causal?) relationships between the cumulative water deficit extremes (CWD) and NDVI extremes. We hypothesize that plants are adapted to the CWD climatology where they grow. This should imply that extreme negative NDVI anomalies occur at different levels of CWD across climatic gradients, but at similar levels in terms of the CWD return periods ($T_\text{CWDX}$).
+
+## Looking at a known NDVI extreme
+
+Based on Zscheischler et al., we take a point in northern France around:
+
+```{r}
+lon <- 50.0
+lat <- 55
+
+## Find longitude index of 0.05 degree grid
+lon_hires <- seq(-179.975, 179.975, by = 0.05)
+ilon <- which.min(abs(lon - lon_hires))
+ilon
+```
+Get data in usable format.
+```{r}
+df <- calc_anom_ndvi_byilon(ilon)
+
+tmp <- df %>% 
+  mutate(len = purrr::map(df_tseries, ~nrow(.))) %>% 
+  dplyr::filter(len==15) %>% 
+  ## get fit metric
+  # slice(1:100) %>% 
+  mutate(fit = purrr::map2(df_tseries, lat, ~metric_greenx(.x, .y))) %>% 
+  dplyr::filter(!identical(fit, NA)) %>% 
+  mutate(tmp = purrr::map(fit, "df_metrics")) %>% 
+  mutate(cor = purrr::map_dbl(tmp, ~{dplyr::filter(., .metric == "cor") %>% pull(.estimate)})) %>% 
+  mutate(cor_test = purrr::map_dbl(tmp, ~{dplyr::filter(., .metric == "cor_test") %>% pull(.estimate)}))
+
+
+df %>% 
+  unnest(df_tseries) %>% 
+```
+
+```{r}
+df2 <- calc_anom_ndvi_byilon(ilon)
+
+df2 <- df2 %>% 
+  unnest(df_tseries)
+
+hist(df2$cwd, xlim = c(0,1000), breaks = 50)
+hist(df2$return_period, xlim = c(0,50), breaks = 50)
+```
+
+```{r pressure}
+gg1 <- df$df_tseries[[1]] %>% 
+  ggplot() + 
+  geom_line(aes(x = time, y = cwd), color = "tomato") +
+  labs(title = "CWD")
+
+gg2 <- df$df_tseries[[1]] %>% 
+  ggplot() + 
+  geom_line(aes(x = time, y = return_period), color = "royalblue") +
+  labs(title = "CWD return period")
+
+gg3 <- df$df_tseries[[1]] %>% 
+  ggplot() + 
+  geom_line(aes(x = time, y = zscore), color = "springgreen3") +
+  labs(title = "NDVI anomaly")
+
+gg1 /
+  gg2 /
+  gg3
+```
+
+```{r pressure}
+df$df_tseries[[1]] %>% 
+  ggplot(aes(x = cwd, y = ndvi_anom)) + 
+  geom_point()
+
+df$df_tseries[[1]] %>% 
+  ggplot(aes(x = return_period, y = ndvi_anom)) + 
+  geom_point()
+```
